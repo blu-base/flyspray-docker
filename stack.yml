@@ -1,0 +1,44 @@
+version: '3.2'
+
+services:
+  db:
+    image: postgres
+    restart: always
+    volumes:
+      - db:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=flyspray
+      - POSTGRES_USER=flyspray
+      - POSTGRES_PASSWORD=flyspray
+
+  app:
+    image: flyspray
+    restart: always
+    ports:
+      - 8080:80
+    volumes:
+      - flyspray:/var/www/html
+    environment:
+      - POSTGRES_HOST=db
+      - POSTGRES_DB=flyspray
+      - POSTGRES_USER=flyspray
+      - POSTGRES_PASSWORD=flyspray
+    depends_on:
+      - db
+
+  cron:
+    image: flyspray
+    restart: always
+    volumes:
+      - nextcloud:/var/www/html
+    entrypoint: /cron.sh
+    depends_on:
+      - deb
+
+
+  volumes:
+    db:
+    flyspray:
+
+  secrets:
+    flyspray_admin_password:

@@ -1,0 +1,7 @@
+contact_links:
+    - name: 🐛 Flyspray issue
+      url: https://bugs.flyspray.org/
+      about: Bug reports and feature requests for Flyspray
+    - name: 🐳 Docker Support and Help
+      url: https://forums.docker.com/
+      about: Configuration, installation, networking and other questions
