@@ -12,7 +12,7 @@ services:
       - POSTGRES_PASSWORD=flyspray
 
   app:
-    image: flyspray
+    image: flyspray-test
     restart: always
     ports:
       - 8080:80
@@ -33,7 +33,7 @@ services:
       - nextcloud:/var/www/html
     entrypoint: /cron.sh
     depends_on:
-      - deb
+      - db
 
 
   volumes:
