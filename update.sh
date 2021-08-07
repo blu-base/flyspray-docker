@@ -68,13 +68,13 @@ function create_variant() {
 	# copy the upgrade.exclude 
 	cp upgrade.exclude "$dir/"
 
-	# Copy the config directory
-	cp -rT .config "$dir/config"
-
-	# Remove Apache config if we're not an Apache variant.
-	if [ "$variant" != "apache" ]; then
-		rm "$dir/config/apache-pretty-urls.config.php"
-	fi
+#	# Copy the config directory
+#	cp -rT .config "$dir/config"
+#
+#	# Remove Apache config if we're not an Apache variant.
+#	if [ "$variant" != "apache" ]; then
+#		rm "$dir/config/apache-pretty-urls.config.php"
+#	fi
 }
 
 curl -fsSL 'https://api.github.com/repos/flyspray/flyspray/releases/latest' | \
