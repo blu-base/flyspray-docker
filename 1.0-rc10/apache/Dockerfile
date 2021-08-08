@@ -6,6 +6,8 @@ RUN set -ex; \
 	apt-get update; \
 	apt-get install -y --no-install-recommends \
 		vim \
+		rsync \
+		busybox-static \
 	; \
 	rm -rf /var/lib/apt/lists/*; \
 	\
@@ -36,18 +38,30 @@ RUN set -ex; \
 		libjpeg62-turbo-dev \
 		libfreetype6-dev \
 		libssl-dev \
+		libpq-dev \
 		libmcrypt-dev;
 
 RUN set -ex; \
 	docker-php-ext-configure gd --with-freetype --with-jpeg; \
-	docker-php-ext-install mysqli pqsql exif pdo gd zip pdo_mysql
+	docker-php-ext-install -j "$(nproc)" \
+		gd \
+		mysqli \
+		pgsql \
+		pdo_mysql \
+		pdo \
+		pdo_pgsql \
+		exif \
+		zip \
+	;
 
 RUN set -ex; \
 	apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false; \
 	rm -rf /var/lib/apt/lists/*
 
 # set recommended PHP.ini settings
-		
+RUN mkdir /var/www/data; \
+	chown -R www-data:root /var/www; \
+	chmod -R g=u /var/www
 
 VOLUME /var/www/html
 
