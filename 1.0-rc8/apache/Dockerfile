@@ -5,9 +5,9 @@ RUN set -ex; \
 	\
 	apt-get update; \
 	apt-get install -y --no-install-recommends \
-		vim \
 		rsync \
 		busybox-static \
+		postgresql-client \
 	; \
 	rm -rf /var/lib/apt/lists/*; \
 	\
@@ -39,9 +39,7 @@ RUN set -ex; \
 		libfreetype6-dev \
 		libssl-dev \
 		libpq-dev \
-		libmcrypt-dev;
-
-RUN set -ex; \
+		libmcrypt-dev; \
 	docker-php-ext-configure gd --with-freetype --with-jpeg; \
 	docker-php-ext-install -j "$(nproc)" \
 		gd \

@@ -112,55 +112,171 @@ if expr "$1" : "apache" 1>/dev/null || [ "$1" = "php-fpm" ] || [ "${FLYSPRAY_UPD
 			fi
 		done
 
+		# use profided .htaccess if apache is used
+		if expr "$1" : "apache" 1>/dev/null; then
+			if [ -f "/var/www/html/htaccess.dist" ]; then
+				mv "/var/www/html/htaccess.dist" "/var/www/html/.htaccess"
+			fi
+		fi
+
 		echo "Initializing finished"
 
 		#install
 		if [ "$installed_version" = "0.0" ]; then
 			echo "New flyspray instance"
 
-			file_env FLYSPRAY_ADMIN_PASSWORD
-			file_env FLYSPRAY_ADMIN_USER
+			file_env MYSQL_HOST
+			file_env MYSQL_DATABASE
+			file_env MYSQL_PASSWORD
+			file_env MYSQL_USER
+			file_env POSTGRES_HOST
+			file_env POSTGRES_DB
+			file_env POSTGRES_PASSWORD
+			file_env POSTGRES_USER
 
-			if [ -n "${FLYSPRAY_ADMIN_USER+x}" ] && [ -n "${FLYSPRAY_ADMIN_PASSWORD+x}" ]; then
-				# shellcheck disable=SC2016
-				install_options='-n --admin-user "$FLYSPRAY_ADMIN_USER" --admin-pass "$FLYSPRAY_ADMIN_PASSWORD"'
-				if [ -n "${FLYSPRAY_DATA_DIR+x}" ]; then
-					# shellcheck disable=SC2016
-					install_options=$install_options' --data-dir "$FLYSPRAY_DATA_DIR"'
-				fi
+			CONF="/var/www/html/flyspray.conf.php"
+			touch "$CONF"
+			chmod 644 "$CONF"
+			chown www-data "$CONF"
+			
+			echo "; <?php die( 'Do not access this page directly.' ); ?>\n" >> "$CONF"
 
-				file_env MYSQL_DATABASE
-				file_env MYSQL_PASSWORD
-				file_env MYSQL_USER
-				file_env POSTGRES_DB
-				file_env POSTGRES_PASSWORD
-				file_env POSTGRES_USER
+			echo "[database]" >> "$CONF"
 
-				install=false
-				if [ -n "${SQLITE_DATABASE+x}" ]; then
-					echo "Installing with SQLite database"
-					# shellcheck disable=SC2016
-					install_options=$install_options' --database-name "$SQLITE_DATABASE"'
-					install=true
-				elif [ -n "${MYSQL_DATABASE+x}" ] && [ -n "${MYSQL_USER+x}" ] && [ -n "${MYSQL_PASSWORD+x}" ] && [ -n "${MYSQL_HOST+x}" ]; then
-					echo "Installing with MySQL database"
-					# shellcheck disable=SC2016
-					install_options=$install_options' --database mysql --database-name "$MYSQL_DATABASE" --database-user "$MYSQL_USER" --database-pass "$MYSQL_PASSWORD" --database-host "$MYSQL_HOST"'
-					install=true
-				elif [ -n "${POSTGRES_DB+x}" ] && [ -n "${POSTGRES_USER+x}" ] && [ -n "${POSTGRES_PASSWORD+x}" ] && [ -n "${POSTGRES_HOST+x}" ]; then
-					echo "Installing with PostgreSQL database"
-					# shellcheck disable=SC2016
-					install_options=$install_options' --database pgsql --database-name "$POSTGRES_DB" --database-user "$POSTGRES_USER" --database-pass "$POSTGRES_PASSWORD" --database-host "$POSTGRES_HOST"'
-					install=true
-				fi
-			else
-				echo "running web-based installer on first connect!"
+
+			if [ -n "${MYSQL_DATABASE+x}" ] && [ -n "${MYSQL_USER+x}" ] && [ -n "${MYSQL_PASSWORD+x}" ] && [ -n "${MYSQL_HOST+x}" ]; then
+				echo "dbtype = \"mysqli\"" >> "$CONF"
+				echo "dbhost = \"$MYSQL_HOST\"" >> "$CONF"
+				echo "dbname = \"$MYSQL_DATABASE\"" >> "$CONF"
+				echo "dbuser = \"$MYSQL_USER\"" >> "$CONF"
+				echo "dbpass = \"$MYSQL_PASSWORD\"" >> "$CONF"
+			elif [ -n "${POSTGRES_DB+x}" ] && [ -n "${POSTGRES_USER+x}" ] && [ -n "${POSTGRES_PASSWORD+x}" ] && [ -n "${POSTGRES_HOST+x}" ]; then
+				echo "dbtype = \"pgsql\"" >> "$CONF"
+				echo "dbhost = \"$POSTGRES_HOST\"" >> "$CONF"
+				echo "dbname = \"$POSTGRES_DB\"" >> "$CONF"
+				echo "dbuser = \"$POSTGRES_USER\"" >> "$CONF"
+				echo "dbpass = \"$POSTGRES_PASSWORD\"" >> "$CONF"
 			fi
 
-		#upgrade
-		# else
+			if [ -n "${DB_PREFIX}" ]; then
+				echo "dbprefix = \"$DB_PREFIX\"" >> "$CONF"
+			else
+				echo "dbprefix = \"_flyspray\"" >> "$CONF"
+			fi
+
+			echo >> "$CONF"
+			echo "[general]" >> "$CONF"
+			echo "cookiesalt = \"$(openssl rand -hex 16)\"" >> "$CONF"
+			echo "output_buffering = on" >> "$CONF"
+			echo "passwdcrypt = \"sha512\"" >> "$CONF"
+			echo "dot_path = \"/usr/bin/dot\"" >> "$CONF"
+			echo "dot_format = \"svg\"" >> "$CONF"
+			echo "reminder_daemon = \"1\"" >> "$CONF"
+			echo "doku_url = \"http://en.wikipedia.org/wiki\"" >> "$CONF"
+			
+			case "${SYNTAX_PLUGIN}" in
+				html)
+					echo "syntax_plugin = \"html\"" >> "$CONF"
+					;;
+				none)
+					echo "syntax_plugin = \"none\"" >> "$CONF"
+					;;
+				dokuwiki)
+					echo "syntax_plugin = \"dokuwiki\"" >> "$CONF"
+					;;
+				*)
+					echo "syntax_plugin = \"dokuwiki\"" >> "$CONF"
+					;;
+			esac
+
+			echo "update_check = \"1\"" >> "$CONF"
+			echo "\n\n" >> "$CONF"
+
+			echo "[attachments]" >> "$CONF"
+			echo "zip = \"application/zip\"" >> "$CONF"
+			echo "\n\n" >> "$CONF"
+
+			echo "[oauth]" >> "$CONF"
+
+			if [ -n "${OA_GITHUB_SECRET}" ] && [ -n "${OA_GITHUB_ID}" ] && [ -n "${OA_GITHUB_REDIRECT}" ]; then
+				echo "github_secret = \"${OA_GITHUB_SECRECT}\"" >> "$CONF"
+				echo "github_id = \"${OA_GITHUB_ID}\"" >> "$CONF"
+				echo "github_redirect = \"${OA_GITHUB_REDIRECT}\"" >> "$CONF"
+			else
+				echo "github_secret = \"\"" >> "$CONF"
+				echo "github_id = \"\"" >> "$CONF"
+				echo "github_redirect = \"\"" >> "$CONF"
+			fi
+
+			if [ -n "${OA_GOOGLE_SECRET}" ] && [ -n "${OA_GOOGLE_ID}" ] && [ -n "${OA_GOOGLE_REDIRECT}" ]; then
+				echo "google_secret = \"${OA_GOOGLE_SECRECT}\"" >> "$CONF"
+				echo "google_id = \"${OA_GOOGLE_ID}\"" >> "$CONF"
+				echo "google_redirect = \"${OA_GOOGLE_REDIRECT}\"" >> "$CONF"
+			else
+				echo "google_secret = \"\"" >> "$CONF"
+				echo "google_id = \"\"" >> "$CONF"
+				echo "google_redirect = \"\"" >> "$CONF"
+			fi
+
+			if [ -n "${OA_FACEBOOK_SECRET}" ] && [ -n "${OA_FACEBOOK_ID}" ] && [ -n "${OA_FACEBOOK_REDIRECT}" ]; then
+				echo "facebook_secret = \"${OA_FACEBOOK_SECRECT}\"" >> "$CONF"
+				echo "facebook_id = \"${OA_FACEBOOK_ID}\"" >> "$CONF"
+				echo "facebook_redirect = \"${OA_FACEBOOK_REDIRECT}\"" >> "$CONF"
+			else
+				echo "facebook_secret = \"\"" >> "$CONF"
+				echo "facebook_id = \"\"" >> "$CONF"
+				echo "facebook_redirect = \"\"" >> "$CONF"
+			fi
+
+			if [ -n "${OA_MICROSOFT_SECRET}" ] && [ -n "${OA_MICROSOFT_ID}" ] && [ -n "${OA_MICROSOFT_REDIRECT}" ]; then
+				echo "microsoft_secret = \"${OA_MICROSOFT_SECRECT}\"" >> "$CONF"
+				echo "microsoft_id = \"${OA_MICROSOFT_ID}\"" >> "$CONF"
+				echo "microsoft_redirect = \"${OA_MICROSOFT_REDIRECT}\"" >> "$CONF"
+			else
+				echo "microsoft_secret = \"\"" >> "$CONF"
+				echo "microsoft_id = \"\"" >> "$CONF"
+				echo "microsoft_redirect = \"\"" >> "$CONF"
+			fi
+
+		rm -rf "/var/www/html/setup"
+
 		fi
+
+
+
+# 			if [ -n "${FLYSPRAY_ADMIN_USER+x}" ] && [ -n "${FLYSPRAY_ADMIN_PASSWORD+x}" ]; then
+# 				# shellcheck disable=SC2016
+# 				install_options='-n --admin-user "$FLYSPRAY_ADMIN_USER" --admin-pass "$FLYSPRAY_ADMIN_PASSWORD"'
+# 				if [ -n "${FLYSPRAY_DATA_DIR+x}" ]; then
+# 					# shellcheck disable=SC2016
+# 					install_options=$install_options' --data-dir "$FLYSPRAY_DATA_DIR"'
+# 				fi
+# 
+# 
+# 				install=false
+# 				if [ -n "${SQLITE_DATABASE+x}" ]; then
+# 					echo "Installing with SQLite database"
+# 					# shellcheck disable=SC2016
+# 					install_options=$install_options' --database-name "$SQLITE_DATABASE"'
+# 					install=true
+# 				elif [ -n "${MYSQL_DATABASE+x}" ] && [ -n "${MYSQL_USER+x}" ] && [ -n "${MYSQL_PASSWORD+x}" ] && [ -n "${MYSQL_HOST+x}" ]; then
+# 					echo "Installing with MySQL database"
+# 					# shellcheck disable=SC2016
+# 					install_options=$install_options' --database mysql --database-name "$MYSQL_DATABASE" --database-user "$MYSQL_USER" --database-pass "$MYSQL_PASSWORD" --database-host "$MYSQL_HOST"'
+# 					install=true
+# 				elif [ -n "${POSTGRES_DB+x}" ] && [ -n "${POSTGRES_USER+x}" ] && [ -n "${POSTGRES_PASSWORD+x}" ] && [ -n "${POSTGRES_HOST+x}" ]; then
+# 					echo "Installing with PostgreSQL database"
+# 					# shellcheck disable=SC2016
+# 					install_options=$install_options' --database pgsql --database-name "$POSTGRES_DB" --database-user "$POSTGRES_USER" --database-pass "$POSTGRES_PASSWORD" --database-host "$POSTGRES_HOST"'
+# 					install=true
+# 				fi
+# 			else
+# 				echo "running web-based installer on first connect!"
+# 			fi
+# 		fi
+# 
+# 		#upgrade
+# 		# else
 	fi
 fi
-
 exec "$@"
