@@ -47,7 +47,7 @@ function create_variant() {
 		s/%%PHP_VERSION%%/'"$phpVersion"'/g;
 		s/%%VARIANT%%/'"$variant"'/g;
 		s/%%VERSION%%/'"$1"'/g;
-		s/%%FULLVERSION%%/'"$2"'/g;
+		s|%%FULLVERSION%%|'"$2"'|g;
 		s/%%BASE_DOWNLOAD_URL%%/'"$3"'/g;
 		s/%%CMD%%/'"${cmd[$variant]}"'/g;
 		s|%%VARIANT_EXTRAS%%|'"${extras[$variant]}"'|g;
@@ -86,9 +86,15 @@ fullversions=( $(curl -fsSL 'https://api.github.com/repos/flyspray/flyspray/rele
 
 versions=( $( printf '%s\n' "${fullversions[@]:0:3}" | sed 's/v\(.*\)/\1/g' ) )
 
+# prepare release-based setups
 for version in "${versions[@]}"; do
   fullversion="$( printf '%s\n' "${fullversions[@]}" | grep -E "$version" | head -1 )"
   for variant in "${variants[@]}"; do
     create_variant "$version" "$fullversion" "https:\/\/github.com\/Flyspray\/flyspray"
   done
 done
+
+# prepare development setup (git head of main branch)
+create_variant "master" "refs/heads/master" "https:\/\/github.com\/Flyspray\/flyspray"
+
+
