@@ -13,7 +13,7 @@ services:
     secrets:
       - db_password
 
-  app:
+  flyspray:
     image: flyspray
     restart: always
     ports:
@@ -25,6 +25,10 @@ services:
       - POSTGRES_DB=flyspray
       - POSTGRES_USER=flyspray
       - POSTGRES_PASSWORD_FILE=/run/secrets/db_password
+      - DB_PREFIX=flyspray_
+      - FS_ADMIN_USERNAME=admin
+      - FS_ADMIN_EMAIL=admin@example.com
+      - FS_ADMIN_PASSWORD_FILE=/run/secrets/fs_admin_password
     depends_on:
       - db
     secrets:
