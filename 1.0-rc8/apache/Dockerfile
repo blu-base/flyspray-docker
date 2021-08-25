@@ -11,7 +11,7 @@ RUN set -ex; \
 	rm -rf /var/lib/apt/lists/*; \
 	\
 	mkdir -p /var/spool/cron/crontabs; \
-	echo '*/5 * * * * php /var/www/html/schedule.php' > /var/spool/cron/crontabs/www-data
+	echo '*/30 * * * * php /var/www/html/schedule.php' > /var/spool/cron/crontabs/www-data
 
 # utilities
 RUN set -ex; \
