@@ -7,9 +7,6 @@ This repository containes the source of a Docker image for that software.
 Major parts of the source are shamelessly copied from the [Nextcloud](https://github.com/nextcloud/docker)
 Docker container source and adapted to the needs of Flyspray.
 
-Consider this **project under development**, since the adaption is not completed
-yet.
-
 # How to use this image
 
 This image is designed to be used in a micro-service environment. There
