@@ -19,7 +19,7 @@ declare -A extras=(
 )
 
 declare -A crontab_int=(
-	[default]='5'
+	[default]='30'
 )
 
 variants=(
