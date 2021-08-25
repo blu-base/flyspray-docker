@@ -22,7 +22,7 @@ type:
 ```
 $ docker run -d -p 8080:80 flyspray
 ```
-Now you can access Nextcloud at http://localhost:8080/ from your host system.
+Now you can access Flyspray at http://localhost:8080/ from your host system.
 
 ## Using an external database
 By default, this container uses PostgreSQL for data storage but the Flyspray 
@@ -73,17 +73,15 @@ If you want to use named volumes for all of these, it would look like this:
 ```console
 $ docker run -d \
 -v flyspray:/var/www/html \
--v theme:/var/www/html/themes/<YOUR_CUSTOM_THEME> \
-nextcloud
+flyspray
 ```
-
 
 ## Auto configuration via environment variables
 The Flyspray image supports auto configuration via environment variables. You
 can preconfigure everything that is asked on the install page on first run. To
 enable auto configuration, set your database connection via the following
 environment variables. You must specify all of the environment variables for a
-given database or the database environment variables defaults to SQLITE.
+given database.
 ONLY use one database type!
 
 __MYSQL/MariaDB__:
@@ -103,10 +101,131 @@ With a complete configuration by using all variables for your database type, you
 can additionally configure your Flyspray instance by setting admin user and 
 password (only works if you set both):
 
-- `FLYSPRAY_ADMIN_USER` Name of the Flyspray admin user.
-- `FLYSPRAY_ADMIN_PASSWORD` Password for the Flyspray admin user.
+- `FS_ADMIN_USERNAME` Name of the Flyspray admin user.
+- `FS_ADMIN_PASSWORD_FILE` Password file for the Flyspray admin user.
+- `FS_ADMIN_EMAIL` Email of the Flyspray admin user.
+- `FS_ADMIN_XMPP` XMPP address of the Flyspray admin user (optional).
+- `FS_ADMIN_REALNAME` Displayed name of the admin user (optional).
 
-** Setting the admin account this way does currently not work!... **
+- `DB_PREFIX` The Table prefix used for Flyspray (optional, defaults to `flyspray_`).
+- `FS_SYNTAX_PLUGIN` Selects which editor is used for Flyspray submissions (optional, defaults to `dokuwiki`).
+- `FS_REMINDER_DAEMON` Selects which method is used to timed notifications (optional, defaults to `0`(cron)).
+
+If you want to use any of the supported OAuth provide, you must specify the set
+of ID, secret and redirection address.
+
+- `FS_OA_GITHUB_ID`
+- `FS_OA_GITHUB_REDIRECT`
+- `FS_OA_GITHUB_SECRET_FILE`
+
+- `FS_OA_GOOGLE_ID`
+- `FS_OA_GOOGLE_REDIRECT`
+- `FS_OA_GOOGLE_SECRET_FILE`
+
+- `FS_OA_MICROSOFT_ID`
+- `FS_OA_MICROSOFT_REDIRECT`
+- `FS_OA_MICROSOFT_SECRET_FILE`
 
 
+# Running this image with docker-compose
+The easiest way to get a fully featured and functional setup is using a `docker-compose` file. There are too many different possibilities to setup your system.
+For this reason, only a few examples are given below.
 
+At first, make sure you have chosen the right features you wanted (see below). In every case, you would want to add a database container and docker volumes to get easy access to your persistent data.
+
+## Just get started
+In the root `stack.yml` shows a sample for a docker-compose setup. It uses a PostgresSQL database, Apache web-server, docker secrets for credentials, and a separate container for cron tasks. To get this started follow these steps:
+
+Copy this file into the desired release, such as master/apache, then change into this directory:
+```bash
+cp stack.yml master/apache/docker-compose.yml
+cd master/apache
+```
+
+Check the environment values set in `docker-compose.yml`. Make sure the database credentials are identical for the db container and flyspray container.
+
+Set the password files. Make sure you have no trailing newline symbols (`-n` option for echo). 
+```bash
+echo -n "mydbpassword" > db_password.txt
+echo -n "myfsadminpassword" > fs_admin_password.txt
+```
+Set the file permission and ownership of these files. For example, run:
+```bash
+sudo bash -c 'for f in db_password.txt fs_admin_password.txt; do chown 0:0 $f; chmod 660 $f; done'
+```
+
+Now, you need to build the image:
+```bash
+docker build -t flyspray .
+```
+
+Finally, run docker-compose to startup the services:
+```bash
+docker-compose up -d
+```
+The initialization will take a few momemnts after the apache container is ready.
+Then you'll be able to access Flyspray via `http://localhost:8080`.
+Login with the admin credentials given by `FS_ADMIN_USERNAME` and `FS_ADMIN_PASSWORD_FILE`, by default `admin` and `myfsadminpassword`, respectively.
+
+# Docker Secrets
+As an alternative to passing sensitive information via environment variables, `_FILE` may be appended to the previously listed environment variables, causing the initialization script to load the values for those variables from files present in the container. For the passwords for postgres, mysql, and the flyspray admin this is the only permitted approach for this container. An example:
+```yaml
+version: '3.2'
+
+services:
+  db:
+    image: postgres
+    restart: always
+    volumes:
+      - db:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB_FILE=/run/secrets/postgres_db
+      - POSTGRES_USER_FILE=/run/secrets/postgres_user
+      - POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
+    secrets:
+      - postgres_db
+      - postgres_password
+      - postgres_user
+
+  app:
+    image: flyspray
+    restart: always
+    ports:
+      - 8080:80
+    volumes:
+      - flyspray:/var/www/html
+    environment:
+      - POSTGRES_HOST=db:5432
+      - POSTGRES_DB_FILE=/run/secrets/postgres_db
+      - POSTGRES_USER_FILE=/run/secrets/postgres_user
+      - POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
+      - FS_ADMIN_PASSWORD_FILE=/run/secrets/fs_admin_password
+      - FS_ADMIN_USERNAME_FILE=/run/secrets/fs_admin_user
+    depends_on:
+      - db
+    secrets:
+      - fs_admin_password
+      - fs_admin_user
+      - postgres_db
+      - postgres_password
+      - postgres_user
+
+volumes:
+  db:
+  flyspray:
+
+secrets:
+  fs_admin_password:
+    file: ./fs_admin_password.txt # put admin password to this file
+  fs_admin_user:
+    file: ./fs_admin_user.txt # put admin username to this file
+  postgres_db:
+    file: ./postgres_db.txt # put postgresql db name to this file
+  postgres_password:
+    file: ./postgres_password.txt # put postgresql password to this file
+  postgres_user:
+    file: ./postgres_user.txt # put postgresql username to this file
+```
+
+# Questions / Issues
+If you got any questions or problems using the image, please visit the [Github Repository](https://github.com/blu-base/flyspray-docker) and write an issue.
