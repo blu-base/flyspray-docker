@@ -7,7 +7,6 @@ RUN set -ex; \
 	apt-get install -y --no-install-recommends \
 		rsync \
 		busybox-static \
-		postgresql-client \
 	; \
 	rm -rf /var/lib/apt/lists/*; \
 	\
@@ -75,11 +74,6 @@ RUN a2enmod headers rewrite remoteip ;\
 ENV FLYSPRAY_VERSION 1.0-rc10
 
 RUN set -ex; \
-	fetchDeps=" \
-		\
-	"; \
-	apt-get update; \
-	apt-get install -y --no-install-recommends $fetchDeps; \
 	curl -fsSL -o flyspray.tar.gz \
 		"https://github.com/Flyspray/flyspray/archive/v1.0-rc10.tar.gz"; \
   tar -xzf flyspray.tar.gz -C /usr/src; \
@@ -89,13 +83,7 @@ RUN set -ex; \
 	curl -sS https://getcomposer.org/installer | php; \
 	php composer.phar install --no-dev
 
-RUN set -ex; \
-	\
-	apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false; \
-	rm -rf /var/lib/apt/lists/*
-
 COPY *.sh upgrade.exclude /
-#COPY config/* /usr/src/flyspray/config
 
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["apache2-foreground"]

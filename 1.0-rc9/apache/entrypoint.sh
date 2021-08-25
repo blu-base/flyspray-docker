@@ -43,6 +43,190 @@ file_env() {
 	unset "$fileVar"
 }
 
+## HACK function to initialize after db and apache have been started
+setup() {
+	if [ "$installed_version" = "0.0" ]; then
+		echo "New flyspray instance"
+		file_env MYSQL_HOST
+		file_env MYSQL_DATABASE
+		file_env MYSQL_USER
+		file_env POSTGRES_HOST 'db:5432'
+		file_env POSTGRES_DB
+		file_env POSTGRES_USER
+
+		file_env DB_PREFIX 'flyspray_'
+		file_env FS_SYNTAX_PLUGIN 'dokuwiki'
+		file_env FS_REMINDER_DAEMON '1'
+
+		file_env FS_ADMIN_USERNAME 'admin'
+		file_env FS_ADMIN_EMAIL 'admin@example.com'
+		file_env FS_ADMIN_XMPP ''
+		file_env FS_ADMIN_REALNAME ''
+
+		file_env FS_OA_GITHUB_ID ''
+		file_env FS_OA_GITHUB_REDIRECT ''
+		file_env FS_OA_GOOGLE_ID ''
+		file_env FS_OA_GOOGLE_REDIRECT ''
+		file_env FS_OA_MICROSOFT_ID ''
+		file_env FS_OA_MICROSOFT_REDIRECT ''
+
+
+
+		if [ -n "${MYSQL_DATABASE}" ] && [ -n "${MYSQL_USER}" ] && [ -n "${MYSQL_PASSWORD_FILE}" ] && [ -n "${MYSQL_HOST}" ]; then
+			DB_TYPE='mysqli'
+			DB_HOST="${MYSQL_HOST}"
+			DB_NAME="${MYSQL_DATABASE}"
+			DB_PW_FILE="${MYSQL_PASSWORD_FILE}"
+			DB_USER="${MYSQL_USER}"
+		elif [ -n "${POSTGRES_DB}" ] && [ -n "${POSTGRES_USER}" ] && [ -n "${POSTGRES_PASSWORD_FILE}" ] && [ -n "${POSTGRES_HOST}" ]; then
+			DB_TYPE='pgsql'
+			DB_HOST="${POSTGRES_HOST}"
+			DB_NAME="${POSTGRES_DB}"
+			DB_PW_FILE="${POSTGRES_PASSWORD_FILE}"
+			DB_USER="${POSTGRES_USER}"
+		else
+			echo >&2 "The provided database login is not valid.\nEither provide (MYSQL_DATABASE, MYSQL_USER, MYSQL_PASSWORD_FILE, MYSQL_HOST),\nor (POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD_FILE, POSTGRES_HOST)."
+			exit 1
+		fi
+
+		## say hello
+		PHPSESSID=$(curl -s -I http://localhost/setup/index.php \
+			-X GET \
+			-H 'Accept: text/html' \
+			-H 'Accept-Language: en-US,en;q=0.5' \
+			-H 'Connection: keep-alive' \
+			-H 'Upgrade-Insecure-Requests: 1' \
+			-H 'Sec-Fetch-Dest: document' \
+			-H 'Sec-Fetch-Mode: navigate' \
+			-H 'Sec-Fetch-Side: none' \
+			-H 'Sec-Fetch-User: ?1' \
+			-H 'Host: localhost' \
+			| grep Set-Cookie \
+			| sed 's/.*PHPSESSID=\([a-f0-9]*\); .*/\1/g' \
+		)
+
+		## visit pre-installation check
+		curl -s http://localhost/setup/index.php \
+			-X POST \
+			-H 'Accept: text/html' \
+			-H 'Accept-Language: en-US,en;q=0.5' \
+			-H 'Content-Type: application/x-www-form-urlencoded' \
+			-H 'Connection: keep-alive' \
+			-H "Cookie: PHPSESSID=$PHPSESSID" \
+			-H 'Upgrade-Insecure-Requests: 1' \
+			-H 'Sec-Fetch-Dest: document' \
+			-H 'Sec-Fetch-Mode: navigate' \
+			-H 'Sec-Fetch-Side: same-origin' \
+			-H 'Sec-Fetch-User: ?1' \
+			-H 'Host: localhost' \
+			--data-urlencode "action=database" \
+			--data-urlencode "next=next"
+
+		## populate the db
+		curl -s http://localhost/setup/index.php \
+			-X POST \
+			-H 'Accept: text/html' \
+			-H 'Accept-Language: en-US,en;q=0.5' \
+			-H 'Content-Type: application/x-www-form-urlencoded' \
+			-H 'Connection: keep-alive' \
+			-H "Cookie: PHPSESSID=$PHPSESSID" \
+			-H 'Upgrade-Insecure-Requests: 1' \
+			-H 'Sec-Fetch-Dest: document' \
+			-H 'Sec-Fetch-Mode: navigate' \
+			-H 'Sec-Fetch-Side: same-origin' \
+			-H 'Sec-Fetch-User: ?1' \
+			-H 'Host: localhost' \
+			--data-urlencode "db_type=$DB_TYPE" \
+			--data-urlencode "db_hostname=$DB_HOST" \
+			--data-urlencode "db_name=$DB_NAME" \
+			--data-urlencode "db_username=$DB_USER" \
+			--data-urlencode "db_password@$DB_PW_FILE" \
+			--data-urlencode "db_prefix=$DB_PREFIX" \
+			--data-urlencode "action=administration" \
+			--data-urlencode "next=next"
+
+		## final flyspray setup
+		curl -s http://localhost/setup/index.php \
+			-X POST \
+			-H 'Accept: text/html' \
+			-H 'Accept-Language: en-US,en;q=0.5' \
+			-H 'Content-Type: application/x-www-form-urlencoded' \
+			-H 'Connection: keep-alive' \
+			-H "Cookie: PHPSESSID=$PHPSESSID" \
+			-H 'Upgrade-Insecure-Requests: 1' \
+			-H 'Sec-Fetch-Dest: document' \
+			-H 'Sec-Fetch-Mode: navigate' \
+			-H 'Sec-Fetch-Side: same-origin' \
+			-H 'Sec-Fetch-User: ?1' \
+			-H 'Host: localhost' \
+			--data-urlencode "db_type=$DB_TYPE" \
+			--data-urlencode "db_hostname=$DB_HOST" \
+			--data-urlencode "db_name=$DB_NAME" \
+			--data-urlencode "db_username=$DB_USER" \
+			--data-urlencode "db_password@$DB_PW_FILE" \
+			--data-urlencode "db_prefix=$DB_PREFIX" \
+			--data-urlencode "admin_username=$FS_ADMIN_USERNAME" \
+			--data-urlencode "admin_password@$FS_ADMIN_PASSWORD_FILE" \
+			--data-urlencode "admin_email=$FS_ADMIN_EMAIL" \
+			--data-urlencode "admin_realname=$FS_ADMIN_REALNAME" \
+			--data-urlencode "admin_xmpp=$FS_ADMIN_XMPP" \
+			--data-urlencode "syntax_plugin=$FS_SYNTAX_PLUGIN" \
+			--data-urlencode "reminder_daemon=$FS_REMINDER_DAEMON" \
+			--data-urlencode "action=complete" \
+			--data-urlencode "next=Next+>>"
+
+		## after-setup cleanup
+		echo "Run Flyspray after-setup clean-up"
+		curl -s http://localhost/setup/cleanupaftersetup.php
+
+
+		# use soa password encryption
+		echo "Set password encrpytion"
+		sed -i "s/^\(passwdcrypt =\) .*/\1 \"sha512\"/g" /var/www/html/flyspray.conf.php
+
+		# add support for graphs
+		echo "Setup for dot graphs"
+		sed -i "s|^\(dot_path =\) .*|\1 \"/usr/bin/dot\"|g" /var/www/html/flyspray.conf.php
+		sed -i "s/^\(dot_format =\) .*/\1 \"svg\"/g" /var/www/html/flyspray.conf.php
+
+
+		# add oauth provider
+		echo "Checking OAuth provider setup:"
+		echo -n "Github..."
+		if [ -n "${FS_OA_GITHUB_SECRET_FILE}" ] && [ -n "${FS_OA_GITHUB_ID}" ] && [ -n "${FS_OA_GITHUB_REDIRECT}" ]; then
+			echo "setting up."
+			sed -i "s/^\(github_secret\) =.*/\1 = '$(cat $FS_OA_GITHUB_SECRET_FILE)'/g" /var/www/html/flyspray.conf.php
+			sed -i "s/^\(github_id\) =.*/\1 = '$FS_OA_GITHUB_ID'/g" /var/www/html/flyspray.conf.php
+			sed -i "s/^\(github_redirect\) =.*/\1 = '$FS_OA_GITHUB_REDIRECT'/g" /var/www/html/flyspray.conf.php
+		else
+			echo "skipping."
+		fi
+
+		echo -n "Google..."
+		if [ -n "${FS_OA_GOOGLE_SECRET_FILE}" ] && [ -n "${FS_OA_GOOGLE_ID}" ] && [ -n "${FS_OA_GOOGLE_REDIRECT}" ]; then
+			echo "setting up."
+			sed -i "s/^\(google_secret\) =.*/\1 = '$(cat $FS_OA_GOOGLE_SECRET_FILE)'/g" /var/www/html/flyspray.conf.php
+			sed -i "s/^\(google_id\) =.*/\1 = '$FS_OA_GOOGLE_ID'/g" /var/www/html/flyspray.conf.php
+			sed -i "s/^\(google_redirect\) =.*/\1 = '$FS_OA_GOOGLE_REDIRECT'/g" /var/www/html/flyspray.conf.php
+		else
+			echo "skipping."
+		fi
+
+		echo -n "Microsoft..."
+		if [ -n "${FS_OA_MICROSOFT_SECRET_FILE}" ] && [ -n "${FS_OA_MICROSOFT_ID}" ] && [ -n "${FS_OA_MICROSOFT_REDIRECT}" ]; then
+			echo "setting up."
+			sed -i "s/^\(microsoft_secret\) =.*/\1 = '$(cat $FS_OA_MICROSOFT_SECRET_FILE)'/g" /var/www/html/flyspray.conf.php
+			sed -i "s/^\(microsoft_id\) =.*/\1 = '$FS_OA_MICROSOFT_ID'/g" /var/www/html/flyspray.conf.php
+			sed -i "s/^\(microsoft_redirect\) =.*/\1 = '$FS_OA_MICROSOFT_REDIRECT'/g" /var/www/html/flyspray.conf.php
+		else
+			echo "skipping."
+		fi
+	else
+		#existing instance
+		return
+	fi
+}
+
 
 
 if expr "$1" : "apache" 1>/dev/null; then
@@ -52,32 +236,6 @@ if expr "$1" : "apache" 1>/dev/null; then
 fi
 
 if expr "$1" : "apache" 1>/dev/null || [ "$1" = "php-fpm" ] || [ "${FLYSPRAY_UPDATE:-0}" -eq 1 ]; then
-#    if [ -n "${REDIS_HOST+x}" ]; then
-#
-#        echo "Configuring Redis as session handler"
-#        {
-#            file_env REDIS_HOST_PASSWORD
-#            echo 'session.save_handler = redis'
-#            # check if redis host is an unix socket path
-#            if [ "$(echo "$REDIS_HOST" | cut -c1-1)" = "/" ]; then
-#              if [ -n "${REDIS_HOST_PASSWORD+x}" ]; then
-#                echo "session.save_path = \"unix://${REDIS_HOST}?auth=${REDIS_HOST_PASSWORD}\""
-#              else
-#                echo "session.save_path = \"unix://${REDIS_HOST}\""
-#              fi
-#            # check if redis password has been set
-#            elif [ -n "${REDIS_HOST_PASSWORD+x}" ]; then
-#                echo "session.save_path = \"tcp://${REDIS_HOST}:${REDIS_HOST_PORT:=6379}?auth=${REDIS_HOST_PASSWORD}\""
-#            else
-#                echo "session.save_path = \"tcp://${REDIS_HOST}:${REDIS_HOST_PORT:=6379}\""
-#            fi
-#            echo "redis.session.locking_enabled = 1"
-#            echo "redis.session.lock_retries = -1"
-#            # redis.session.lock_wait_time is specified in microseconds.
-#            # Wait 10ms before retrying the lock rather than the default 2ms.
-#            echo "redis.session.lock_wait_time = 10000"
-#        } > /usr/local/etc/php/conf.d/redis-session.ini
-#    fi
 
 	installed_version="0.0"
 	if [ -f /var/www/html/includes/class.flyspray.php ]; then
@@ -113,136 +271,16 @@ if expr "$1" : "apache" 1>/dev/null || [ "$1" = "php-fpm" ] || [ "${FLYSPRAY_UPD
 		done
 
 		# use profided .htaccess if apache is used
+		echo "Setting .htaccess"
 		if expr "$1" : "apache" 1>/dev/null; then
 			if [ -f "/var/www/html/htaccess.dist" ]; then
 				mv "/var/www/html/htaccess.dist" "/var/www/html/.htaccess"
 			fi
 		fi
 
-		echo "Initializing finished"
-
-		##install
-		#if [ "$installed_version" = "0.0" ]; then
-		#	echo "New flyspray instance"
-
-		#	file_env MYSQL_HOST
-		#	file_env MYSQL_DATABASE
-		#	file_env MYSQL_PASSWORD
-		#	file_env MYSQL_USER
-		#	file_env POSTGRES_HOST
-		#	file_env POSTGRES_DB
-		#	file_env POSTGRES_PASSWORD
-		#	file_env POSTGRES_USER
-
-		#	CONF="/var/www/html/flyspray.conf.php"
-		#	touch "$CONF"
-		#	chmod 644 "$CONF"
-		#	chown www-data "$CONF"
-		#	
-		#	echo "; <?php die( 'Do not access this page directly.' ); ?>\n" >> "$CONF"
-
-		#	echo "[database]" >> "$CONF"
-
-
-		#	if [ -n "${MYSQL_DATABASE+x}" ] && [ -n "${MYSQL_USER+x}" ] && [ -n "${MYSQL_PASSWORD+x}" ] && [ -n "${MYSQL_HOST+x}" ]; then
-		#		echo "dbtype = \"mysqli\"" >> "$CONF"
-		#		echo "dbhost = \"$MYSQL_HOST\"" >> "$CONF"
-		#		echo "dbname = \"$MYSQL_DATABASE\"" >> "$CONF"
-		#		echo "dbuser = \"$MYSQL_USER\"" >> "$CONF"
-		#		echo "dbpass = \"$MYSQL_PASSWORD\"" >> "$CONF"
-		#	elif [ -n "${POSTGRES_DB+x}" ] && [ -n "${POSTGRES_USER+x}" ] && [ -n "${POSTGRES_PASSWORD+x}" ] && [ -n "${POSTGRES_HOST+x}" ]; then
-		#		echo "dbtype = \"pgsql\"" >> "$CONF"
-		#		echo "dbhost = \"$POSTGRES_HOST\"" >> "$CONF"
-		#		echo "dbname = \"$POSTGRES_DB\"" >> "$CONF"
-		#		echo "dbuser = \"$POSTGRES_USER\"" >> "$CONF"
-		#		echo "dbpass = \"$POSTGRES_PASSWORD\"" >> "$CONF"
-		#	fi
-
-		#	if [ -n "${DB_PREFIX}" ]; then
-		#		echo "dbprefix = \"$DB_PREFIX\"" >> "$CONF"
-		#	else
-		#		echo "dbprefix = \"_flyspray\"" >> "$CONF"
-		#	fi
-
-		#	echo >> "$CONF"
-		#	echo "[general]" >> "$CONF"
-		#	echo "cookiesalt = \"$(openssl rand -hex 16)\"" >> "$CONF"
-		#	echo "output_buffering = on" >> "$CONF"
-		#	echo "passwdcrypt = \"sha512\"" >> "$CONF"
-		#	echo "dot_path = \"/usr/bin/dot\"" >> "$CONF"
-		#	echo "dot_format = \"svg\"" >> "$CONF"
-		#	echo "reminder_daemon = \"1\"" >> "$CONF"
-		#	echo "doku_url = \"http://en.wikipedia.org/wiki\"" >> "$CONF"
-		#	
-		#	case "${SYNTAX_PLUGIN}" in
-		#		html)
-		#			echo "syntax_plugin = \"html\"" >> "$CONF"
-		#			;;
-		#		none)
-		#			echo "syntax_plugin = \"none\"" >> "$CONF"
-		#			;;
-		#		dokuwiki)
-		#			echo "syntax_plugin = \"dokuwiki\"" >> "$CONF"
-		#			;;
-		#		*)
-		#			echo "syntax_plugin = \"dokuwiki\"" >> "$CONF"
-		#			;;
-		#	esac
-
-		#	echo "update_check = \"1\"" >> "$CONF"
-		#	echo "\n\n" >> "$CONF"
-
-		#	echo "[attachments]" >> "$CONF"
-		#	echo "zip = \"application/zip\"" >> "$CONF"
-		#	echo "\n\n" >> "$CONF"
-
-		#	echo "[oauth]" >> "$CONF"
-
-		#	if [ -n "${OA_GITHUB_SECRET}" ] && [ -n "${OA_GITHUB_ID}" ] && [ -n "${OA_GITHUB_REDIRECT}" ]; then
-		#		echo "github_secret = \"${OA_GITHUB_SECRECT}\"" >> "$CONF"
-		#		echo "github_id = \"${OA_GITHUB_ID}\"" >> "$CONF"
-		#		echo "github_redirect = \"${OA_GITHUB_REDIRECT}\"" >> "$CONF"
-		#	else
-		#		echo "github_secret = \"\"" >> "$CONF"
-		#		echo "github_id = \"\"" >> "$CONF"
-		#		echo "github_redirect = \"\"" >> "$CONF"
-		#	fi
-
-		#	if [ -n "${OA_GOOGLE_SECRET}" ] && [ -n "${OA_GOOGLE_ID}" ] && [ -n "${OA_GOOGLE_REDIRECT}" ]; then
-		#		echo "google_secret = \"${OA_GOOGLE_SECRECT}\"" >> "$CONF"
-		#		echo "google_id = \"${OA_GOOGLE_ID}\"" >> "$CONF"
-		#		echo "google_redirect = \"${OA_GOOGLE_REDIRECT}\"" >> "$CONF"
-		#	else
-		#		echo "google_secret = \"\"" >> "$CONF"
-		#		echo "google_id = \"\"" >> "$CONF"
-		#		echo "google_redirect = \"\"" >> "$CONF"
-		#	fi
-
-		#	if [ -n "${OA_FACEBOOK_SECRET}" ] && [ -n "${OA_FACEBOOK_ID}" ] && [ -n "${OA_FACEBOOK_REDIRECT}" ]; then
-		#		echo "facebook_secret = \"${OA_FACEBOOK_SECRECT}\"" >> "$CONF"
-		#		echo "facebook_id = \"${OA_FACEBOOK_ID}\"" >> "$CONF"
-		#		echo "facebook_redirect = \"${OA_FACEBOOK_REDIRECT}\"" >> "$CONF"
-		#	else
-		#		echo "facebook_secret = \"\"" >> "$CONF"
-		#		echo "facebook_id = \"\"" >> "$CONF"
-		#		echo "facebook_redirect = \"\"" >> "$CONF"
-		#	fi
-
-		#	if [ -n "${OA_MICROSOFT_SECRET}" ] && [ -n "${OA_MICROSOFT_ID}" ] && [ -n "${OA_MICROSOFT_REDIRECT}" ]; then
-		#		echo "microsoft_secret = \"${OA_MICROSOFT_SECRECT}\"" >> "$CONF"
-		#		echo "microsoft_id = \"${OA_MICROSOFT_ID}\"" >> "$CONF"
-		#		echo "microsoft_redirect = \"${OA_MICROSOFT_REDIRECT}\"" >> "$CONF"
-		#	else
-		#		echo "microsoft_secret = \"\"" >> "$CONF"
-		#		echo "microsoft_id = \"\"" >> "$CONF"
-		#		echo "microsoft_redirect = \"\"" >> "$CONF"
-		#	fi
-
-		#rm -rf "/var/www/html/setup"
-
-		fi
-
+		echo "Static initialization finished"
 
 	fi
 fi
-exec "$@"
+
+(echo "Scheduling Instance setup..."; sleep 5; echo "Setting up the instance."; setup;) & exec "$@"
