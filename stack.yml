@@ -21,7 +21,7 @@ services:
     volumes:
       - flyspray:/var/www/html
     environment:
-      - POSTGRES_HOST=db
+      - POSTGRES_HOST=db:5432
       - POSTGRES_DB=flyspray
       - POSTGRES_USER=flyspray
       - POSTGRES_PASSWORD_FILE=/run/secrets/db_password
