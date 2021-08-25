@@ -40,12 +40,12 @@ services:
     depends_on:
       - db
 
-  secrets:
-    db_password:
-      file: db_password.txt
-    fs_admin_password:
-      file: fs_admin_password.txt
+secrets:
+  db_password:
+    file: db_password.txt
+  fs_admin_password:
+    file: fs_admin_password.txt
 
-  volumes:
-    db:
-    flyspray:
+volumes:
+  db:
+  flyspray:
