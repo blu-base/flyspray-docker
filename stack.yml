@@ -9,7 +9,9 @@ services:
     environment:
       - POSTGRES_DB=flyspray
       - POSTGRES_USER=flyspray
-      - POSTGRES_PASSWORD=flyspray
+      - POSTGRES_PASSWORD_FILE=/run/secrets/db_password
+    secrets:
+      - db_password
 
   app:
     image: flyspray
@@ -22,9 +24,12 @@ services:
       - POSTGRES_HOST=db
       - POSTGRES_DB=flyspray
       - POSTGRES_USER=flyspray
-      - POSTGRES_PASSWORD=flyspray
+      - POSTGRES_PASSWORD_FILE=/run/secrets/db_password
     depends_on:
       - db
+    secrets:
+      - db_password
+      - fs_admin_password
 
   cron:
     image: flyspray
@@ -35,6 +40,11 @@ services:
     depends_on:
       - db
 
+  secrets:
+    db_password:
+      file: db_password.txt
+    fs_admin_password:
+      file: fs_admin_password.txt
 
   volumes:
     db:
