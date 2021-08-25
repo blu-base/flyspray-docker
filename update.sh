@@ -80,7 +80,7 @@ function create_variant() {
 curl -fsSL 'https://api.github.com/repos/flyspray/flyspray/releases/latest' | \
   jq .tag_name > latest.txt
 
-find . -maxdepth 1 -type d -regextype sed -regex '\./[[:digit:]]\+\.[[:digit:]]\+\(-rc[[:digit:]]*\)\?' -exec rm -r '{}' \;
+find . -maxdepth 1 -type d -regextype sed -regex '\./\([[:digit:]]\+\.[[:digit:]]\+\(-rc[[:digit:]]*\)\?\|master\)' -exec rm -r '{}' \;
 
 fullversions=( $(curl -fsSL 'https://api.github.com/repos/flyspray/flyspray/releases' | jq .[].tag_name | sed 's/"\(.*\)"/\1/g' ) )
 
