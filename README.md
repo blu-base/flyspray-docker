@@ -4,7 +4,7 @@ Docker container for Flyspray
 [Flyspray](https://www.flyspray.org) is a light-weight open-source bug tracker.
 This repository containes the source of a Docker image for that software.
 
-Major parts of the source of this repository are shamelessly copied from the [Nextcloud](https://github.com/nextcloud/docker)
+Major parts of this repository are shamelessly copied from the [Nextcloud](https://github.com/nextcloud/docker)
 Docker container source and adapted to the needs of Flyspray.
 
 # How to use this image
@@ -219,6 +219,10 @@ secrets:
   postgres_user:
     file: ./postgres_user.txt # put postgresql username to this file
 ```
+
+# TODO
+* The nextcloud docker repository has build tests included. It would be nice to get them running here, too.
+* There is no clear path for a version update on an existing volume yet. The container can fill a new volume, or does nothing if an existing instance is found. In the nextcloud docker container, there is a path which updates only the static content which does not contain *user specific* content. I haven't gathered the respective information for flyspray yet.
 
 # Questions / Issues
 If you got any questions or problems using the image, please visit the [Github Repository](https://github.com/blu-base/flyspray-docker) and write an issue.
