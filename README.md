@@ -4,7 +4,7 @@ Docker container for Flyspray
 [Flyspray](https://www.flyspray.org) is a light-weight open-source bug tracker.
 This repository containes the source of a Docker image for that software.
 
-Major parts of the source are shamelessly copied from the [Nextcloud](https://github.com/nextcloud/docker)
+Major parts of the source of this repository are shamelessly copied from the [Nextcloud](https://github.com/nextcloud/docker)
 Docker container source and adapted to the needs of Flyspray.
 
 # How to use this image
@@ -145,10 +145,6 @@ Set the password files. Make sure you have no trailing newline symbols (`-n` opt
 ```bash
 echo -n "mydbpassword" > db_password.txt
 echo -n "myfsadminpassword" > fs_admin_password.txt
-```
-Set the file permission and ownership of these files. For example, run:
-```bash
-sudo bash -c 'for f in db_password.txt fs_admin_password.txt; do chown 0:0 $f; chmod 660 $f; done'
 ```
 
 Now, you need to build the image:
